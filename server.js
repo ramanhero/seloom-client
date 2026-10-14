@@ -1,5 +1,4 @@
 const http = require('http');
-const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
@@ -7,7 +6,7 @@ const { execSync } = require('child_process');
 
 const PORT = 3003;
 
-// Stop any process already running on port 3003
+// 1. Terminate any existing process on port 3003
 try {
   const pids = execSync(`lsof -ti :${PORT}`, { encoding: 'utf-8' }).trim();
   if (pids) {
@@ -17,22 +16,29 @@ try {
         process.kill(Number(pid), 'SIGKILL');
       } catch (e) {}
     });
+    // Wait briefly for port release
+    execSync('sleep 0.2');
     console.log(`Successfully freed port ${PORT}.`);
   }
 } catch (e) {
   // Port is already free
 }
 
-// Load catalog data
+// 2. Load products catalog
 let productsCatalog = [];
+const prodMap = new Map();
 try {
-  const prodRaw = fs.readFileSync(path.join(__dirname, 'products.json'), 'utf-8');
-  productsCatalog = JSON.parse(prodRaw).products || [];
+  const rawCatalog = fs.readFileSync(path.join(__dirname, 'products.json'), 'utf-8');
+  productsCatalog = JSON.parse(rawCatalog).products || [];
+  productsCatalog.forEach(p => {
+    prodMap.set(p.handle.toLowerCase(), p);
+  });
   console.log(`Loaded ${productsCatalog.length} products from catalog.`);
 } catch (e) {
   console.warn('Could not load products.json:', e.message);
 }
 
+// 3. MIME types
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -48,295 +54,260 @@ const MIME_TYPES = {
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
   '.mp4': 'video/mp4',
-  '.heic': 'image/heic',
   '.ico': 'image/x-icon'
 };
 
-// Route mapper for static HTML pages
+// 4. Static Views Mapper
 const STATIC_VIEWS = {
   '/': 'views/index.html',
-  '/collections/all-products': 'views/col_all_products.html',
-  '/collections/all': 'views/col_all_products.html',
-  '/collections/baggy': 'views/col_baggy.html',
-  '/collections/bootcut': 'views/col_bootcut.html',
-  '/collections/straight': 'views/col_straight.html',
-  '/collections/wide': 'views/col_wide.html',
-  '/collections/tops-1': 'views/col_tops.html',
-  '/collections/tops': 'views/col_tops.html',
-  '/collections/accessories-1': 'views/col_accessories.html',
-  '/collections/accessories': 'views/col_accessories.html',
-  '/collections/denimsin-stock': 'views/col_denimsin_stock.html',
-  '/collections/denims': 'views/col_denims.html',
-  '/collections/originals-all-drop': 'views/col_originals_all.html',
-  '/collections/originals-drop-ate': 'views/col_originals_drop_ate.html',
-  '/collections/originals-new-drop': 'views/col_originals_new_drop.html',
-  '/collections/originals-jeans': 'views/col_originals_jeans.html',
-  '/collections/originals-tees': 'views/col_originals_tees.html',
-  '/collections/flash-sale': 'views/col_flash_sale.html',
-  '/collections/new-arrivals': 'views/col_new_arrivals.html',
-  '/collections/top-30-best-sellers': 'views/col_top_30_best_sellers.html',
-  '/collections/blurg-selects': 'views/col_blurg_selects.html',
-  '/pages/contact': 'views/page_contact.html',
-  '/pages/blurg-selects': 'views/page_blurg_selects.html',
-  '/pages/blurg-originals': 'views/page_blurg_originals.html',
-  '/policies/refund-policy': 'views/policy_refund.html',
-  '/policies/shipping-policy': 'views/policy_shipping.html',
-  '/policies/privacy-policy': 'views/policy_privacy.html',
-  '/policies/terms-of-service': 'views/policy_terms.html',
-  '/policies/contact-information': 'views/policy_contact_info.html',
-  '/cart': 'views/index.html',
-  '/account': 'views/index.html',
-  '/account/login': 'views/index.html',
-  '/account/register': 'views/index.html'
+  '/eu/en': 'views/index.html',
+  '/category/silk-bouquets': 'views/category_silk_bouquets.html',
+  '/eu/en/category/silk-bouquets': 'views/category_silk_bouquets.html',
+  '/category/silk-garments': 'views/category_silk_bouquets.html',
+  '/eu/en/category/silk-garments': 'views/category_silk_bouquets.html',
+  '/category/flowers': 'views/category_single_flowers.html',
+  '/eu/en/category/flowers': 'views/category_single_flowers.html',
+  '/category/vases': 'views/category_vases.html',
+  '/eu/en/category/vases': 'views/category_vases.html',
+  '/products/wall-print': 'views/wall_prints.html',
+  '/eu/en/products/wall-print': 'views/wall_prints.html',
+  '/products/the-mini-collection': 'views/mini_collection.html',
+  '/eu/en/products/the-mini-collection': 'views/mini_collection.html',
+  '/bouquet-generator': 'views/bouquet_generator.html',
+  '/eu/en/bouquet-generator': 'views/bouquet_generator.html',
+  '/garment-generator': 'views/bouquet_generator.html',
+  '/eu/en/garment-generator': 'views/bouquet_generator.html',
+  '/gifting': 'views/gifting.html',
+  '/eu/en/gifting': 'views/gifting.html',
+  '/floral-gifts': 'views/gifting.html',
+  '/eu/en/floral-gifts': 'views/gifting.html',
+  '/products/gift-card': 'views/gifting.html',
+  '/eu/en/products/gift-card': 'views/gifting.html',
+  '/stores': 'views/stores.html',
+  '/eu/en/stores': 'views/stores.html',
+  '/team': 'views/team.html',
+  '/eu/en/team': 'views/team.html',
+  '/symbolism': 'views/symbolism.html',
+  '/eu/en/symbolism': 'views/symbolism.html',
+  '/sculptures': 'views/sculptures.html',
+  '/eu/en/sculptures': 'views/sculptures.html',
+  '/popular': 'views/popular.html',
+  '/eu/en/popular': 'views/popular.html',
+  '/portfolio': 'views/portfolio.html',
+  '/eu/en/portfolio': 'views/portfolio.html',
+  '/journal': 'views/journal.html',
+  '/eu/en/journal': 'views/journal.html',
+  '/how-renting-works': 'views/how_renting_works.html',
+  '/eu/en/how-renting-works': 'views/how_renting_works.html',
+  '/how-it-works': 'views/how_renting_works.html',
+  '/eu/en/how-it-works': 'views/how_renting_works.html',
+  '/for-business': 'views/for_business.html',
+  '/eu/en/for-business': 'views/for_business.html',
+  '/for-business/membership': 'views/for_business.html',
+  '/eu/en/for-business/membership': 'views/for_business.html',
+  '/corporate-gifting': 'views/gifting.html',
+  '/eu/en/corporate-gifting': 'views/gifting.html',
+  '/form/tailor-made-quote': 'views/contact.html',
+  '/eu/en/form/tailor-made-quote': 'views/contact.html',
+  '/events': 'views/portfolio.html',
+  '/eu/en/events': 'views/portfolio.html',
+  '/about-us': 'views/about_us.html',
+  '/eu/en/about-us': 'views/about_us.html',
+  '/lookbook': 'views/lookbook.html',
+  '/eu/en/lookbook': 'views/lookbook.html',
+  '/support/delivery-and-returns': 'views/delivery_returns.html',
+  '/eu/en/support/delivery-and-returns': 'views/delivery_returns.html',
+  '/support/faq': 'views/faq.html',
+  '/eu/en/support/faq': 'views/faq.html',
+  '/support/contact': 'views/contact.html',
+  '/eu/en/support/contact': 'views/contact.html',
+  '/login': 'views/login.html',
+  '/eu/en/login': 'views/login.html',
+  '/account': 'views/login.html',
+  '/eu/en/account': 'views/login.html',
+  '/terms-of-service': 'views/terms.html',
+  '/eu/en/terms-of-service': 'views/terms.html',
+  '/privacy-policy': 'views/privacy.html',
+  '/eu/en/privacy-policy': 'views/privacy.html'
 };
 
-function serveFileWithRange(req, res, filePath) {
-  const stat = fs.statSync(filePath);
-  const total = stat.size;
-  const ext = path.extname(filePath).toLowerCase();
-  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+function serveFile(req, res, filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-  const range = req.headers.range;
-  if (range && ext === '.mp4') {
-    const parts = range.replace(/bytes=/, '').split('-');
-    const partialstart = parts[0];
-    const partialend = parts[1];
-
-    const start = parseInt(partialstart, 10);
-    const end = partialend ? parseInt(partialend, 10) : total - 1;
-    const chunksize = (end - start) + 1;
-
-    res.writeHead(206, {
-      'Content-Range': `bytes ${start}-${end}/${total}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': chunksize,
-      'Content-Type': contentType
-    });
-    const stream = fs.createReadStream(filePath, { start, end });
-    stream.pipe(res);
-  } else {
-    const isDevAsset = ext === '.js' || ext === '.css' || ext === '.html';
     res.writeHead(200, {
-      'Content-Length': total,
       'Content-Type': contentType,
-      'Accept-Ranges': 'bytes',
-      'Cache-Control': isDevAsset ? 'no-cache, no-store, must-revalidate' : 'public, max-age=86400'
+      'Content-Length': stat.size,
+      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=86400'
     });
     fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
   }
 }
 
-function proxyAndCache(reqUrl, assetPath, res) {
-  let remoteUrl = 'https://blurgvillage.com' + reqUrl;
-  if (assetPath.startsWith('/s/files/')) {
-    remoteUrl = 'https://cdn.shopify.com' + reqUrl;
-  }
+// In-memory session cart storage
+let serverCart = { items: [], total_price: 0, item_count: 0 };
 
-  const localFile = path.join(__dirname, 'public', assetPath.replace(/^\//, ''));
-  const localDir = path.dirname(localFile);
-  if (!fs.existsSync(localDir)) {
-    fs.mkdirSync(localDir, { recursive: true });
-  }
-
-  const req = https.get(remoteUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+function renderProductDetail(req, res, handle) {
+  let prod = prodMap.get(handle.toLowerCase());
+  if (!prod) {
+    const clean = handle.toLowerCase().replace(/[^a-z0-9]/g, '');
+    for (const [key, p] of prodMap.entries()) {
+      const cleanKey = key.replace(/[^a-z0-9]/g, '');
+      if (cleanKey === clean || (clean.length > 4 && cleanKey.includes(clean)) || (cleanKey.length > 4 && clean.includes(cleanKey))) {
+        prod = p;
+        break;
+      }
     }
-  }, (remoteRes) => {
-    if (remoteRes.statusCode === 200) {
-      const ext = path.extname(assetPath).toLowerCase();
-      res.writeHead(200, {
-        'Content-Type': remoteRes.headers['content-type'] || MIME_TYPES[ext] || 'application/octet-stream',
-        'Cache-Control': 'public, max-age=86400'
-      });
-      const fileStream = fs.createWriteStream(localFile);
-      remoteRes.pipe(fileStream);
-      remoteRes.pipe(res);
+  }
+  if (!prod) prod = productsCatalog[0];
+  if (!prod) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('Product not found');
+  }
+
+  try {
+    let pdpHtml = fs.readFileSync(path.join(__dirname, 'views', 'product.html'), 'utf-8');
+
+    // Title & Meta
+    pdpHtml = pdpHtml.replace(/<title>[\s\S]*?<\/title>/i, `<title>SÈLOOM | ${prod.name}</title>`);
+    
+    // Product Title
+    pdpHtml = pdpHtml.replace(/<h1 class="B2CHero-module-scss-module__ELtPEG__title">[\s\S]*?<\/h1>/i, `<h1 class="B2CHero-module-scss-module__ELtPEG__title">${prod.name}</h1>`);
+    pdpHtml = pdpHtml.replace(/<h1 class="B2CBuyWidget-module-scss-module__GNANQa__stickyTitle">[\s\S]*?<\/h1>/i, `<h1 class="B2CBuyWidget-module-scss-module__GNANQa__stickyTitle">${prod.name}</h1>`);
+
+    // Price
+    pdpHtml = pdpHtml.replace(/99,-/g, `${prod.price},-`);
+
+    // Status tag
+    if (prod.tag) {
+      pdpHtml = pdpHtml.replace(/Temporarily sold out/g, prod.tag);
+    }
+
+    // Hero image
+    if (prod.heroImage) {
+      pdpHtml = pdpHtml.replace(/https:\/\/cdn\.shopify\.com\/s\/files\/1\/1231\/6442\/files\/M-TSHIRT-15906-21550-MUSTARD_1\.jpg[^\s"']*/g, prod.heroImage);
+      pdpHtml = pdpHtml.replace(/Oscar-HERO-og\.jpg[^\s"']*/g, prod.heroImage);
+      pdpHtml = pdpHtml.replace(/Oscar-HERO-PDP\.jpg[^\s"']*/g, prod.heroImage);
+    }
+    // Detail image
+    if (prod.detailImage) {
+      pdpHtml = pdpHtml.replace(/https:\/\/cdn\.shopify\.com\/s\/files\/1\/1231\/6442\/files\/M-TSHIRT-15906-21550-MUSTARD_3\.jpg[^\s"']*/g, prod.detailImage);
+      pdpHtml = pdpHtml.replace(/Oscar-INT-PDP\.jpg[^\s"']*/g, prod.detailImage);
+    }
+
+    // Tab description
+    pdpHtml = pdpHtml.replace(/Five rust-coloured silk orchids, nothing more needed\. Feminine, sculptural and unmistakably autumnal\. The bouquet comes with our complimentary floral scent\./g, prod.description);
+
+    // Inject __PDP_DATA__ script
+    const injection = `<script>window.__PDP_DATA__ = ${JSON.stringify(prod)};</script>`;
+    pdpHtml = pdpHtml.replace('</head>', injection + '</head>');
+
+    // Replace Add button if sold out
+    if (!prod.inStock) {
+      pdpHtml = pdpHtml.replace(/<button type="submit"[^>]*>[\s\S]*?<\/button>/i, '<button type="button" class="checkout-btn" style="background: #999; cursor: not-allowed;" disabled>Temporarily Sold Out</button>');
     } else {
-      res.writeHead(remoteRes.statusCode || 404);
-      res.end('Not found');
+      pdpHtml = pdpHtml.replace(/<button type="submit"[^>]*>[\s\S]*?<\/button>/i, `<button type="submit" id="pdp-add-to-bag-btn" class="checkout-btn" style="background: var(--bw-deep-green);">Add to bag • €${prod.price},-</button>`);
     }
-  });
 
-  req.on('error', (err) => {
-    res.writeHead(502);
-    res.end('Proxy error: ' + err.message);
-  });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(pdpHtml);
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+    res.end('Server error rendering product: ' + err.message);
+  }
 }
 
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
-  let pathname = parsedUrl.pathname;
+  let pathname = parsedUrl.pathname.replace(/\/+$/, '') || '/';
+  console.log(`[REQ] ${req.method} ${pathname}`);
 
-  // Normalize trailing slash
-  if (pathname.length > 1 && pathname.endsWith('/')) {
-    pathname = pathname.slice(0, -1);
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    return res.end();
   }
 
-  // 1. Static APIs
+  // 1. API: /products.json
   if (pathname === '/products.json') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    fs.createReadStream(path.join(__dirname, 'products.json')).pipe(res);
-    return;
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    return res.end(JSON.stringify({ products: productsCatalog }));
   }
 
-  if (pathname === '/collections.json') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    fs.createReadStream(path.join(__dirname, 'collections.json')).pipe(res);
-    return;
-  }
-
-  // Cart API endpoints
-  if (pathname === '/cart.js') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      token: "bv_token_local",
-      note: null,
-      attributes: {},
-      total_price: 0,
-      total_weight: 0,
-      item_count: 0,
-      items: [],
-      requires_shipping: true,
-      currency: "INR",
-      items_subtotal_price: 0
-    }));
-    return;
-  }
-
-  if (pathname === '/cart/add.js' || pathname === '/cart/add') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, message: "Item added to cart" }));
-    return;
-  }
-
-  // Predictive search API
-  if (pathname === '/search/suggest.json' || pathname === '/search') {
-    const q = (parsedUrl.query.q || '').toLowerCase();
-    const results = productsCatalog.filter(p => p.title.toLowerCase().includes(q)).slice(0, 8);
-    if (parsedUrl.query.resources) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        resources: {
-          results: {
-            products: results.map(p => ({
-              id: p.id,
-              title: p.title,
-              url: `/products/${p.handle}`,
-              image: p.images && p.images[0] ? p.images[0].src : '',
-              price: p.variants && p.variants[0] ? p.variants[0].price : '1299'
-            }))
+  // 2. All /cart APIs
+  if (pathname.startsWith('/cart')) {
+    if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const item = JSON.parse(body || '{}');
+          if (item.id || item.name) {
+            serverCart.items.push(item);
           }
-        }
-      }));
+          serverCart.item_count = serverCart.items.reduce((s, i) => s + (i.quantity || 1), 0);
+          serverCart.total_price = serverCart.items.reduce((s, i) => s + ((i.price || 0) * (i.quantity || 1)), 0);
+        } catch (e) {}
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(serverCart));
+      });
       return;
     }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    return res.end(JSON.stringify(serverCart));
   }
 
-  // 2. Direct views (Homepage, Collections, Policies, Pages)
-  if (STATIC_VIEWS[pathname]) {
-    const filePath = path.join(__dirname, STATIC_VIEWS[pathname]);
-    if (fs.existsSync(filePath)) {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      fs.createReadStream(filePath).pipe(res);
-      return;
+  // 4. Check static public assets (public/)
+  let publicPath = path.join(__dirname, 'public', pathname);
+  if (fs.existsSync(publicPath) && fs.statSync(publicPath).isFile()) {
+    return serveFile(req, res, publicPath);
+  }
+
+  // Also check if request starts with /public/
+  if (pathname.startsWith('/public/')) {
+    let sub = pathname.replace('/public/', '');
+    let check = path.join(__dirname, 'public', sub);
+    if (fs.existsSync(check) && fs.statSync(check).isFile()) {
+      return serveFile(req, res, check);
     }
   }
 
-  // Collections wildcard route
-  if (pathname.startsWith('/collections/')) {
-    const colHandle = pathname.replace('/collections/', '');
-    const colView = path.join(__dirname, `views/col_${colHandle.replace(/-/g, '_')}.html`);
-    if (fs.existsSync(colView)) {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      fs.createReadStream(colView).pipe(res);
-      return;
-    } else {
-      // Fallback to all products collection
-      const fallback = path.join(__dirname, 'views/col_all_products.html');
-      if (fs.existsSync(fallback)) {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        fs.createReadStream(fallback).pipe(res);
-        return;
-      }
+  // 5. Check Static Views
+  const viewFile = STATIC_VIEWS[pathname];
+  if (viewFile) {
+    const fullPath = path.join(__dirname, viewFile);
+    if (fs.existsSync(fullPath)) {
+      return serveFile(req, res, fullPath);
     }
   }
 
-  // Products wildcard route
-  if (pathname.startsWith('/products/')) {
-    const handle = pathname.replace('/products/', '');
-    const prodFile = path.join(__dirname, 'views/products', `${handle}.html`);
-    if (fs.existsSync(prodFile)) {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      fs.createReadStream(prodFile).pipe(res);
-      return;
-    }
-
-    // If not pre-downloaded, check if product is in products.json and synthesize full product page
-    const product = productsCatalog.find(p => p.handle === handle);
-    if (product) {
-      const baseTemplate = path.join(__dirname, 'views/products/bv-worn-dark-bootcut.html');
-      if (fs.existsSync(baseTemplate)) {
-        let html = fs.readFileSync(baseTemplate, 'utf-8');
-        const imgUrl = (product.images && product.images[0]) ? product.images[0].src : '';
-        const price = product.variants && product.variants[0] ? product.variants[0].price : '1299';
-        
-        html = html.replace(/BV WORN DARK BOOTCUT/g, product.title.toUpperCase());
-        html = html.replace(/bv-worn-dark-bootcut/g, product.handle);
-        html = html.replace(/₹\s*1,499\.00/g, `₹${price}.00`);
-        if (imgUrl) {
-          html = html.replace(/src="[^"]*WEBP_File_5699[^"]*"/g, `src="${imgUrl}"`);
-        }
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(html);
-        return;
-      }
-    }
+  // 6. Product Detail Page routes: /products/:handle or /eu/en/products/:handle
+  const pdpMatch = pathname.match(/^(?:\/eu\/en)?\/products\/([^\/]+)(?:\/.*)?$/);
+  if (pdpMatch) {
+    const handle = pdpMatch[1];
+    return renderProductDetail(req, res, handle);
   }
 
-  // 3. Static assets (/public/..., /cdn/..., /s/files/...)
-  let assetCandidate = null;
-  if (pathname === '/client-enhancement.js') {
-    assetCandidate = path.join(__dirname, 'public/client-enhancement.js');
-  } else if (pathname.startsWith('/public/')) {
-    assetCandidate = path.join(__dirname, pathname);
-  } else if (pathname.startsWith('/cdn/')) {
-    assetCandidate = path.join(__dirname, 'public', pathname);
-  } else if (pathname.startsWith('/s/files/')) {
-    assetCandidate = path.join(__dirname, 'public', pathname);
+  // Fallback: Default to Homepage
+  const fallbackIndex = path.join(__dirname, 'views', 'index.html');
+  if (fs.existsSync(fallbackIndex)) {
+    return serveFile(req, res, fallbackIndex);
   }
 
-  if (assetCandidate && fs.existsSync(assetCandidate) && fs.statSync(assetCandidate).isFile()) {
-    // If file is valid and not a 10px placeholder (< 2000 bytes, except favicon), serve it
-    const stat = fs.statSync(assetCandidate);
-    const isTinyPlaceholder = stat.size < 2000 && !assetCandidate.endsWith('blurg.png') && !assetCandidate.endsWith('.ico') && !assetCandidate.endsWith('.svg') && !assetCandidate.endsWith('.css') && !assetCandidate.endsWith('.js') && !assetCandidate.endsWith('.woff2') && !assetCandidate.endsWith('.woff');
-    if (!isTinyPlaceholder) {
-      serveFileWithRange(req, res, assetCandidate);
-      return;
-    }
-  }
-
-  // On-demand asset fetching proxy for CDN assets
-  if (pathname.startsWith('/cdn/') || pathname.startsWith('/s/files/')) {
-    proxyAndCache(req.url, pathname, res);
-    return;
-  }
-
-  // 404 Fallback to home
-  const fallbackHome = path.join(__dirname, 'views/index.html');
-  if (fs.existsSync(fallbackHome)) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    fs.createReadStream(fallbackHome).pipe(res);
-  } else {
-    res.writeHead(404);
-    res.end('Not found');
-  }
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('SÈLOOM: Page Not Found');
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`=======================================================`);
-  console.log(`  BLURG VILLAGE REPLICA IS RUNNING SUCCESSFULLY!`);
-  console.log(`  Local URL: http://localhost:${PORT}`);
-  console.log(`  Network:   http://0.0.0.0:${PORT}`);
-  console.log(`=======================================================`);
+  console.log(`✨ SÈLOOM luxury wear server running at http://localhost:${PORT}`);
+  console.log(`✨ Live preview ready at http://localhost:${PORT}/eu/en`);
 });

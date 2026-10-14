@@ -1,12 +1,17 @@
 {
-  "name": "blurgvillage-replica",
+  "name": "bloom-and-wolf-replica",
   "version": "1.0.0",
-  "description": "Pixel-perfect replica of blurgvillage.com",
+  "description": "Pixel-perfect replica of Bloom & Wolf (bloomandwolf.com) luxury silk flowers store",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": [],
+  "keywords": [
+    "ecommerce",
+    "bloom-and-wolf",
+    "silk-flowers",
+    "replica"
+  ],
   "author": "",
   "license": "ISC"
 }
